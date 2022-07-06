@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">EMCB_NFC</string>
+    <string name="app_name">EMCB(NFC)</string>
+    <string name="old_app_name">EMCB_NFC</string>
 </resources>
