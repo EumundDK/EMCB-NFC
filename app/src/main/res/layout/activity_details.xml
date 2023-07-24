@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".DetailsActivity">
+
+    <LinearLayout
+        android:id="@+id/uidLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/sellingDateText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Selling Date:"
+            android:textSize="20sp"
+            android:typeface="serif"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <EditText
+            android:id="@+id/sellingDateInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:hint="DDMMYYYY"
+            android:textSize="20sp"
+            android:inputType="datetime"
+            android:maxLength="8"
+            android:typeface="serif"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <TextView
+            android:id="@+id/customerNameText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Customer Name:"
+            android:textSize="20sp"
+            android:typeface="serif"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <EditText
+            android:id="@+id/customerNameInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="20sp"
+            android:maxLength="16"
+            android:typeface="serif"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <TextView
+            android:id="@+id/repairStatusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Repair Status:"
+            android:textSize="20sp"
+            android:typeface="serif"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <EditText
+            android:id="@+id/repairStatusInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="20sp"
+            android:maxLength="16"
+            android:typeface="serif"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <TextView
+            android:id="@+id/productionDateText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Production Date:"
+            android:textSize="20sp"
+            android:typeface="serif"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <EditText
+            android:id="@+id/productionDateInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:hint="DDMMYYYY"
+            android:textSize="20sp"
+            android:inputType="datetime"
+            android:maxLength="8"
+            android:typeface="serif"
+            android:clickable="false"
+            android:longClickable="false"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:enabled="false"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <TextView
+            android:id="@+id/distributorNameText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Distributor Name:"
+            android:textSize="20sp"
+            android:typeface="serif"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <EditText
+            android:id="@+id/distributorNameInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="20sp"
+            android:maxLength="16"
+            android:typeface="serif"
+            android:clickable="false"
+            android:longClickable="false"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:enabled="false"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"/>
+
+        <Button
+            android:id="@+id/readMemoryBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/grey"
+            android:text="READ MEMORY"/>
+        <Button
+            android:id="@+id/writeMemoryBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/grey"
+            android:text="WRITE MEMORY" />
+
+    </LinearLayout>
+
+</RelativeLayout>

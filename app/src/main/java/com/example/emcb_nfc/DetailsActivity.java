@@ -4,22 +4,19 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.PendingIntent;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.EditText;
-import android.widget.Switch;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.st.st25sdk.NFCTag;
@@ -27,29 +24,50 @@ import com.st.st25sdk.STException;
 import com.st.st25sdk.TagHelper;
 import com.st.st25sdk.type5.st25dv.ST25DVTag;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+
 import static com.example.emcb_nfc.TagDiscovery.TAG;
 
-public class MainActivity extends AppCompatActivity implements TagDiscovery.onTagDiscoveryCompletedListener{
+public class DetailsActivity extends AppCompatActivity implements TagDiscovery.onTagDiscoveryCompletedListener{
     private NfcAdapter mNfcAdapter;
     private NFCTag mNfcTag;
     private ST25DVTag mST25DVTag;
-    private MyNFCTag mMyNFCTag;
 
-    private TextView uidTextView;
-    private EditText mCurrentSettingEdit;
-    private EditText mTagIdEdit;
-    private EditText mCutoffPeriodEdit;
-    private Switch mOnOffSettingSwitch;
-    private Switch mAutoReconnectSwitch;
-    private EditText mOwnerNameEdit;
+    private EditText mSellingDateEdit;
+    private EditText mCustomerNameEdit;
+    private EditText mRepairStatusEdit;
+    private EditText mProductionDateEdit;
+    private EditText mDistributorNameEdit;
     private Button mReadMemoryBtn;
     private Button mWriteMemoryBtn;
 
     private Vibrator vibrator;
 
+    private int dataStartAddress = 256;
+    private int dataEndAddress = 295;
+    private int data2StartAddress = 384;
+    private int data2EndAddress = 511;
+
+    String sellingDate;
+    String customerName;
+    String repairStatus;
+    String productionDate;
+    String distributorName;
+
+    byte[] sellingDateByte = new byte[8];
+    byte[] customerNameByte = new byte[16];
+    byte[] repairStatusByte = new byte[16];
+    byte[] productionDateByte = new byte[8];
+    byte[] distributorNameByte = new byte[16];
+
+    private byte[] mPassword = {0,0,0,0,0,0,0,0};
+
+
     enum Action {
         READ_TAG_MEMORY,
-        WRITE_TAG_MEMORY
+        WRITE_TAG_MEMORY,
+        PRESENT_PASSWORD
     }
 
     enum ActionStatus {
@@ -58,44 +76,19 @@ public class MainActivity extends AppCompatActivity implements TagDiscovery.onTa
         TAG_NOT_IN_THE_FIELD
     }
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_details);
         vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-        setContentView(R.layout.activity_main);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
-        mMyNFCTag = MyNFCTag.getInstance();
 
-        uidTextView = findViewById(R.id.uidTextView);
-        mCurrentSettingEdit = (EditText) findViewById(R.id.currentSettingEdit);
-        mTagIdEdit = (EditText) findViewById(R.id.tagIdEdit);
-        mCutoffPeriodEdit = (EditText) findViewById(R.id.cutOffPeriodEdit);
-        mOnOffSettingSwitch = (Switch) findViewById(R.id.onOffSwitch);
-        mOnOffSettingSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-                if(b){
-                    mMyNFCTag.setOnOffSetting(1);
-                } else {
-                    mMyNFCTag.setOnOffSetting(0);
-                }
-            }
-        });
-
-        mAutoReconnectSwitch = (Switch) findViewById(R.id.autoReconnectSwitch);
-        mAutoReconnectSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-                if(b) {
-                    mMyNFCTag.setAutoReconnect(1);
-                } else {
-                    mMyNFCTag.setAutoReconnect(0);
-                }
-            }
-        });
-
-        mOwnerNameEdit = (EditText) findViewById(R.id.ownerNameEdit);
+        mSellingDateEdit = (EditText) findViewById(R.id.sellingDateInput);
+        mCustomerNameEdit = (EditText) findViewById(R.id.customerNameInput);
+        mRepairStatusEdit = (EditText) findViewById(R.id.repairStatusInput);
+        mProductionDateEdit = (EditText) findViewById(R.id.productionDateInput);
+        mDistributorNameEdit = (EditText) findViewById(R.id.distributorNameInput);
         mReadMemoryBtn = findViewById(R.id.readMemoryBtn);
         mReadMemoryBtn.setOnClickListener(view ->  {
             if(mNfcTag != null) {
@@ -109,13 +102,12 @@ public class MainActivity extends AppCompatActivity implements TagDiscovery.onTa
         mWriteMemoryBtn = findViewById(R.id.writeMemoryBtn);
         mWriteMemoryBtn.setOnClickListener(view ->  {
             if(mNfcTag != null) {
-                executeAsynchronousAction(Action.WRITE_TAG_MEMORY);
+                inputPasswordDialog();
             } else {
                 buttonStatus(false);
                 Toast.makeText(this, "Action failed!", Toast.LENGTH_LONG).show();
             }
         });
-
     }
 
     @Override
@@ -147,14 +139,9 @@ public class MainActivity extends AppCompatActivity implements TagDiscovery.onTa
             // show it
             alertDialog.show();
         } else {
-            PendingIntent pendingIntent;
             //Toast.makeText(this, "We are ready to play with NFC!", Toast.LENGTH_SHORT).show();
             // Give priority to the current activity when receiving NFC events (over other actvities)
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                pendingIntent = PendingIntent.getActivity(this, 0, new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0 | PendingIntent.FLAG_UPDATE_CURRENT); //PendingIntent.FLAG_IMMUTABLE
-            } else {
-                pendingIntent = PendingIntent.getActivity(this, 0, new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0);
-            }
+            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0);
             IntentFilter[] nfcFilters = null;
             String[][] nfcTechLists = null;
             mNfcAdapter.enableForegroundDispatch(this, pendingIntent, nfcFilters, nfcTechLists);
@@ -187,13 +174,13 @@ public class MainActivity extends AppCompatActivity implements TagDiscovery.onTa
     public boolean onOptionsItemSelected(MenuItem item) {
         switch(item.getItemId()) {
             case R.id.menu_eeprom:
-                return true;
-            case R.id.menu_details:
-                Intent intent = new Intent(this, DetailsActivity.class);
+                Intent intent = new Intent(this, MainActivity.class);
                 intent.setAction(Intent.ACTION_DEFAULT);
                 startActivity(intent);
                 return true;
-            case android.R.id.home:
+            case R.id.menu_details:
+                return true;
+            case R.id.home:
                 onBackPressed();
                 return true;
         }
@@ -219,7 +206,6 @@ public class MainActivity extends AppCompatActivity implements TagDiscovery.onTa
             mST25DVTag = (ST25DVTag) mNfcTag;
             try {
                 String uidString = nfcTag.getUidString();
-                uidTextView.setText(uidString);
                 buttonStatus(true);
             } catch (STException e) {
                 e.printStackTrace();
@@ -240,6 +226,7 @@ public class MainActivity extends AppCompatActivity implements TagDiscovery.onTa
     private class myAsyncTask extends AsyncTask<Void, Void, ActionStatus> {
         Action mAction;
         byte[] data;
+        byte[] data2;
 
         public myAsyncTask(Action action) {
             mAction = action;
@@ -252,25 +239,39 @@ public class MainActivity extends AppCompatActivity implements TagDiscovery.onTa
             try {
                 switch (mAction) {
                     case READ_TAG_MEMORY:
-                        data = mNfcTag.readBytes(MyNFCTag.DATA_START, MyNFCTag.DATA_LENGTH);
-                        if(data.length == MyNFCTag.DATA_LENGTH) {
-                            mMyNFCTag.setRawData(data);
-                            mMyNFCTag.setData();
-                        }
+                        data = mNfcTag.readBytes(dataStartAddress,dataEndAddress);
+                        data2 = mNfcTag.readBytes(data2StartAddress,data2EndAddress);
+                        sellingDate = new String(data, 0, 8, StandardCharsets.UTF_8);
+                        customerName = new String(data, 8, 16, StandardCharsets.UTF_8);
+                        repairStatus = new String(data, 24, 16, StandardCharsets.UTF_8);
+                        sellingDateByte = Arrays.copyOfRange(data, 0, 8);
+                        customerNameByte = Arrays.copyOfRange(data, 8, 24);
+                        repairStatusByte = Arrays.copyOfRange(data, 24, 40);
+                        productionDate = new String(data2, 0, 8, StandardCharsets.UTF_8);
+                        distributorName = new String(data2, 8, 16, StandardCharsets.UTF_8);
+                        productionDateByte = Arrays.copyOfRange(data2, 0, 8);;
+                        distributorNameByte = Arrays.copyOfRange(data2, 8, 24);;
                         // If we get to this point, it means that no STException occured so the action was successful
                         result = ActionStatus.ACTION_SUCCESSFUL;
                         break;
 
                     case WRITE_TAG_MEMORY:
-                        mMyNFCTag.setCurrentDouble(Double.parseDouble(mCurrentSettingEdit.getText().toString()));
-                        mMyNFCTag.setTagId(Integer.parseInt(mTagIdEdit.getText().toString()));
-                        mMyNFCTag.setCutOffPeriod(Integer.parseInt(mCutoffPeriodEdit.getText().toString()));
+                        sellingDateByte = StandardCharsets.US_ASCII.encode(mSellingDateEdit.getText().toString()).array();
+                        customerNameByte = StandardCharsets.US_ASCII.encode(mCustomerNameEdit.getText().toString()).array();
+                        repairStatusByte = StandardCharsets.US_ASCII.encode(mRepairStatusEdit.getText().toString()).array();
                         if(mST25DVTag.isMailboxEnabled(true)) {
                             mST25DVTag.disableMailbox();
                         }
-                        mNfcTag.writeBytes(MyNFCTag.DATA_START, mMyNFCTag.getData());
+                        mNfcTag.writeBytes(dataStartAddress, sellingDateByte);
+                        mNfcTag.writeBytes(dataStartAddress + 8, customerNameByte);
+                        mNfcTag.writeBytes(dataStartAddress + 24, repairStatusByte);
                         mST25DVTag.enableMailbox();
                         // If we get to this point, it means that no STException occured so the action was successful
+                        result = ActionStatus.ACTION_SUCCESSFUL;
+                        break;
+
+                    case PRESENT_PASSWORD:
+                        mST25DVTag.presentPassword(ST25DVTag.ST25DV_PASSWORD_2, mPassword);
                         result = ActionStatus.ACTION_SUCCESSFUL;
                         break;
 
@@ -298,33 +299,48 @@ public class MainActivity extends AppCompatActivity implements TagDiscovery.onTa
                 case ACTION_SUCCESSFUL:
                     switch (mAction) {
                         case READ_TAG_MEMORY:
-                            data = mMyNFCTag.getRawData();
-                            mCurrentSettingEdit.setText(String.valueOf(mMyNFCTag.getCurrentDouble()));
-                            mTagIdEdit.setText(String.valueOf(mMyNFCTag.getTagId()));
-                            mCutoffPeriodEdit.setText(String.valueOf(mMyNFCTag.getCutOffPeriod()));
-                            onOffStatus(mMyNFCTag.getOnOffSetting());
-                            autoReconnectStatus(mMyNFCTag.getAutoReconnect());
-                            if(data[MyNFCTag.OWNER_NAME] == 0) {
-                                mOwnerNameEdit.getText().clear();
+                            mSellingDateEdit.setText(sellingDate);
+                            if(customerNameByte[0] == 0) {
+                                mCustomerNameEdit.getText().clear();
                             } else {
-                                mOwnerNameEdit.setText(mMyNFCTag.getOwnerName());
+                                mCustomerNameEdit.setText(customerName);
                             }
-                            Toast.makeText(MainActivity.this, "Read successful", Toast.LENGTH_LONG).show();
+                            if(repairStatusByte[0] == 0) {
+                                mRepairStatusEdit.getText().clear();
+                            } else {
+                                mRepairStatusEdit.setText(repairStatus);
+                            }
+                            if(productionDateByte[0] == 0) {
+                                mProductionDateEdit.getText().clear();
+                            } else {
+                                mProductionDateEdit.setText(productionDate);
+                            }
+                            if(distributorNameByte[0] == 0) {
+                                mDistributorNameEdit.getText().clear();
+                            } else {
+                                mDistributorNameEdit.setText(distributorName);
+                            }
+                            Toast.makeText(DetailsActivity.this, "Read successful", Toast.LENGTH_LONG).show();
                             break;
                         case WRITE_TAG_MEMORY:
-                            Toast.makeText(MainActivity.this, "Write successful", Toast.LENGTH_LONG).show();
+                            Toast.makeText(DetailsActivity.this, "Write successful", Toast.LENGTH_LONG).show();
+                            break;
+
+                        case PRESENT_PASSWORD:
+                            executeAsynchronousAction(Action.WRITE_TAG_MEMORY);
+                            Toast.makeText(DetailsActivity.this, "Present Password successful", Toast.LENGTH_LONG).show();
                             break;
                     }
                     break;
 
                 case ACTION_FAILED:
                     buttonStatus(false);
-                    Toast.makeText(MainActivity.this, "Action failed!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(DetailsActivity.this, "Action failed!", Toast.LENGTH_LONG).show();
                     break;
 
                 case TAG_NOT_IN_THE_FIELD:
                     buttonStatus(false);
-                    Toast.makeText(MainActivity.this, "Tag not in the field!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(DetailsActivity.this, "Tag not in the field!", Toast.LENGTH_LONG).show();
                     break;
             }
 
@@ -346,20 +362,28 @@ public class MainActivity extends AppCompatActivity implements TagDiscovery.onTa
 
     }
 
-    private void onOffStatus(int status) {
-        if(status == 1) {
-            mOnOffSettingSwitch.setChecked(true);
-        } else {
-            mOnOffSettingSwitch.setChecked(false);
-        }
-    }
-
-    private void autoReconnectStatus(int status) {
-        if(status == 1) {
-            mAutoReconnectSwitch.setChecked(true);
-        } else {
-            mAutoReconnectSwitch.setChecked(false);
-        }
+    private void inputPasswordDialog() {
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+        EditText inputPassword = new EditText(this);
+        dialog.setMessage("Input Password:");
+        dialog.setView(inputPassword);
+        dialog.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                String inputRawPwd = inputPassword.getText().toString();
+                for(int j = 0; j < 3; j++) {
+                    mPassword[j + 5] = Byte.parseByte(inputRawPwd.substring(2*j, 2*j + 2));
+                }
+                executeAsynchronousAction(Action.PRESENT_PASSWORD);
+            }
+        });
+        dialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.cancel();
+            }
+        });
+        dialog.show();
     }
 
 }
